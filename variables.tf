@@ -6,7 +6,7 @@ variable "aws_region" {
 variable "ec2_ami_id" {
   description = "AMI ID for the EC2 app host."
   type        = string
-  default     = "ami-068c0051b15cdb81" 
+  default     = "ami-07ff62358b87c7116" 
 }
 
 variable "ec2_instance_type" {
@@ -14,8 +14,6 @@ variable "ec2_instance_type" {
   type        = string
   default     = "t2.micro"
 }
-
-
 
 
 variable "rds_db_name" {
@@ -42,5 +40,8 @@ variable "user_name" {
     default = "my_unique_name"
 }
 
-
+variable "account_ID"{
+  type = string
+  default = 724772093504
+}
 

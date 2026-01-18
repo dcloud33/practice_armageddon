@@ -1,3 +1,6 @@
+
+chmod +x user_data.sh
+
 #!/bin/bash
 dnf update -y
 dnf install -y python3-pip
@@ -12,7 +15,7 @@ import pymysql
 from flask import Flask, request
 
 REGION = os.environ.get("AWS_REGION", "us-east-1")
-SECRET_ID = os.environ.get("SECRET_ID", "lab/rds/mysql")
+SECRET_ID = os.environ.get("SECRET_ID", "${local.name_prefix}ec2/rds/mysql")
 
 secrets = boto3.client("secretsmanager", region_name=REGION)
 
@@ -102,7 +105,7 @@ After=network.target
 
 [Service]
 WorkingDirectory=/opt/rdsapp
-Environment=SECRET_ID=lab/rds/mysql
+Environment=SECRET_ID=${local.name_prefix}ec2/rds/mysql
 ExecStart=/usr/bin/python3 /opt/rdsapp/app.py
 Restart=always
 
