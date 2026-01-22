@@ -1,13 +1,14 @@
 
-chmod +x user_data.sh
-
 #!/bin/bash
-dnf update -y
-dnf install -y python3-pip
-pip3 install flask pymysql boto3
+sudo dnf update -y
+sudo dnf install -y python3-pip
+sudo pip3 install flask pymysql boto3
 
-mkdir -p /opt/rdsapp
-cat >/opt/rdsapp/app.py <<'PY'
+sudo yum install amazon-cloudwatch-agent -y
+
+
+sudo mkdir -p /opt/rdsapp
+sudo tee /opt/rdsapp/app.py <<'PY'
 import json
 import os
 import boto3
@@ -15,7 +16,7 @@ import pymysql
 from flask import Flask, request
 
 REGION = os.environ.get("AWS_REGION", "us-east-1")
-SECRET_ID = os.environ.get("SECRET_ID", "${local.name_prefix}ec2/rds/mysql")
+SECRET_ID = os.environ.get("SECRET_ID", "${local.name_prefix}_ec2/rds/mysql*")
 
 secrets = boto3.client("secretsmanager", region_name=REGION)
 
@@ -98,7 +99,7 @@ if __name__ == "__main__":
     app.run(host="0.0.0.0", port=80)
 PY
 
-cat >/etc/systemd/system/rdsapp.service <<'SERVICE'
+sudo tee /etc/systemd/system/rdsapp.service <<'SERVICE'
 [Unit]
 Description=EC2 to RDS Notes App
 After=network.target
@@ -113,6 +114,8 @@ Restart=always
 WantedBy=multi-user.target
 SERVICE
 
-systemctl daemon-reload
-systemctl enable rdsapp
-systemctl start rdsapp
+sudo systemctl start amazon-cloudwatch-agent
+sudo systemctl enable amazon-cloudwatch-agent
+sudo systemctl daemon-reload
+sudo systemctl enable rdsapp
+sudo systemctl start rdsapp

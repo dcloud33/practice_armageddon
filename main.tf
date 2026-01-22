@@ -1,8 +1,8 @@
 
 ########## Locals ########
 locals {
-    name_prefix = var.user_name
-    
+  name_prefix = var.user_name
+
 }
 
 ##################-VPC-#################
@@ -19,7 +19,7 @@ resource "aws_vpc" "help_me" {
 }
 
 
-###################-Subnets: Public & Private-#############
+###################-SUBNETS FOR PUBLIC & PRIVATE-############################
 
 
 resource "aws_subnet" "sweet_freedom_public" {
@@ -94,7 +94,7 @@ resource "aws_eip" "mando_eip" {
 
 resource "aws_nat_gateway" "my_nat" {
   allocation_id = aws_eip.mando_eip.id
-  subnet_id     = aws_subnet.sweet_freedom_public.id # NAT in a public subnet
+  subnet_id     = aws_subnet.sweet_freedom_public.id 
 
   tags = {
     Name = "My_underground_connection!"
@@ -161,7 +161,7 @@ resource "aws_security_group" "my-ec2-sg" {
 ########################## Security Group Ingress & Egress Rules for EC2 ######################
 resource "aws_vpc_security_group_ingress_rule" "http_access" {
   security_group_id = aws_security_group.my-ec2-sg.id
-  cidr_ipv4         = aws_vpc.help_me.cidr_block
+  cidr_ipv4         = "0.0.0.0/0"
   from_port         = 80
   ip_protocol       = "tcp"
   to_port           = 80
@@ -181,6 +181,45 @@ resource "aws_vpc_security_group_egress_rule" "ec2_outbound" {
   ip_protocol       = "-1"
 }
 
+################ RDS to EC2 CONNECT #################################
+# RDS security group
+resource "aws_security_group" "rds_connect_sg" {
+  name   = "rds_connect_sg"
+  vpc_id = aws_vpc.help_me.id
+}
+
+resource "aws_security_group_rule" "rds_connect_sg_access" {
+  type                     = "ingress"
+  security_group_id        = aws_security_group.rds_connect_sg.id
+  from_port                = 3306
+  protocol                 = "tcp"
+  to_port                  = 3306
+  source_security_group_id = aws_security_group.ec2_connect_sg.id
+}
+
+# EC2 Security group
+resource "aws_security_group" "ec2_connect_sg" {
+  name   = "ec2_connect_sg"
+  vpc_id = aws_vpc.help_me.id
+}
+
+resource "aws_vpc_security_group_ingress_rule" "ec2_http_access" {
+  security_group_id = aws_security_group.ec2_connect_sg.id
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 80
+  ip_protocol       = "tcp"
+  to_port           = 80
+}
+resource "aws_security_group_rule" "ec2_connect_rule" {
+  type                     = "egress"
+  to_port                  = 3306
+  protocol                 = "tcp"
+  from_port                = 3306
+  security_group_id        = aws_security_group.ec2_connect_sg.id
+  source_security_group_id = aws_security_group.rds_connect_sg.id
+}
+
+
 ################### RDS Security Group: Ingress & Egress ######################
 
 resource "aws_security_group" "my-rds-sg" {
@@ -194,8 +233,8 @@ resource "aws_security_group" "my-rds-sg" {
 }
 
 resource "aws_security_group_rule" "ec2_to_rds_access" {
-  type                     = "ingress"
-  security_group_id        = aws_security_group.my-rds-sg.id
+  type              = "ingress"
+  security_group_id = aws_security_group.my-rds-sg.id
   # cidr_blocks              = [aws_vpc.help_me.cidr_block]
   from_port                = 3306
   protocol                 = "tcp"
@@ -216,7 +255,7 @@ resource "aws_vpc_security_group_egress_rule" "rds_outbound" {
 
 resource "aws_db_subnet_group" "my_rds_subnet_group" {
   name        = "my-rds-subnet-group"
-  subnet_ids  = [aws_subnet.the_frozen_hell_of_hoath_private.id,aws_subnet.The_secured_vault_private.id]
+  subnet_ids  = [aws_subnet.the_frozen_hell_of_hoath_private.id, aws_subnet.The_secured_vault_private.id]
   description = "this will have the RDS in the private subnet"
 
   tags = {
@@ -229,29 +268,28 @@ resource "aws_db_subnet_group" "my_rds_subnet_group" {
 
 
 resource "aws_db_instance" "my_instance_rds" {
-  identifier             = "lab-mysql"
-  engine                 = "mysql"
-  instance_class         = "db.t3.micro"
-  allocated_storage      = 20
-  db_name                = var.rds_db_name
-  username               = var.rds_user_name
-  password               = var.rds_db_password
+  identifier                      = "lab-mysql"
+  engine                          = "mysql"
+  instance_class                  = "db.t3.micro"
+  allocated_storage               = 20
+  db_name                         = var.rds_db_name
+  username                        = var.rds_user_name
+  password                        = var.rds_db_password
   enabled_cloudwatch_logs_exports = ["error"]
 
   availability_zone = "us-east-1a"
 
   db_subnet_group_name   = aws_db_subnet_group.my_rds_subnet_group.name
-  vpc_security_group_ids = [aws_security_group.my-rds-sg.id]
+  vpc_security_group_ids = [aws_security_group.my-rds-sg.id, aws_security_group.rds_connect_sg.id]
 
-  publicly_accessible    = false
-  skip_final_snapshot    = true
+  publicly_accessible = false
+  skip_final_snapshot = true
 
 
   tags = {
     Name = "my-rds-instance"
   }
 }
-
 
 ################## IAM Role & EC2 Instance #####################
 
@@ -261,25 +299,30 @@ resource "aws_iam_role" "my_ec2_role" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect = "Allow"
+      Effect    = "Allow"
       Principal = { Service = "ec2.amazonaws.com" }
-      Action = "sts:AssumeRole"
+      Action    = "sts:AssumeRole"
     }]
   })
 }
 
-# resource "aws_iam_role_policy_attachment" "my_ec2_ssm_attach" {
-#   role       = aws_iam_role.my_ec2_role.name
-#   policy_arn  = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-# }
 
-# Explanation: EC2 must read secrets/params during recovery—give it access (students should scope it down).
+########### IAM POLICY ATTACHMENT ###############################
 resource "aws_iam_role_policy_attachment" "my_ec2_secrets_attach" {
-  role      = aws_iam_role.my_ec2_role.name
-  policy_arn = "arn:aws:iam::aws:policy/SecretsManagerReadWrite" 
+  role       = aws_iam_role.my_ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/SecretsManagerReadWrite"
+}
+resource "aws_iam_role_policy_attachment" "my_ec2_ssm" {
+  role       = aws_iam_role.my_ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+resource "aws_iam_role_policy_attachment" "my_ec2_cloudwatch_agent" {
+  role       = aws_iam_role.my_ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
 
+############### IAM ROLE POLICY ############################
 resource "aws_iam_role_policy" "specific_access_policy" {
   name = "EC2_to_Secrets"
   role = aws_iam_role.my_ec2_role.id
@@ -288,114 +331,180 @@ resource "aws_iam_role_policy" "specific_access_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Action   = ["secretsmanager:GetSecretValue", 
-                    "secretsmanager:DescribeSecret",
-                    "secretsmanager:ListSecrets",
-                    ]
-        Effect   = "Allow"
-        Resource = [
-          "arn:aws:secretsmanager:${var.aws_region}:${var.account_ID}:secret:${local.name_prefix}ec2/rds/mysql*"
+        Action = ["secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret",
+          "secretsmanager:ListSecrets",
         ]
-          
-        
+        Effect = "Allow"
+        Resource = [
+          "arn:aws:secretsmanager:${var.aws_region}:${var.account_ID}:secret:${local.name_prefix}_ec2/rds/mysql*"
+        ]
+
+
       },
     ]
   })
 }
 
-# resource "aws_iam_policy" "Secrets_EC2_policy" {
-#   name        = "SecretsManagedReadAccess"
-#   description = "To be able to read specific secrets in Secrets Manager"
-  
-#   policy = jsonencode({
-#     Version = "2012-10-17"
-#     Statement = [
-#       {
-#         Sid = "ReadSpecificSecret"
-#         Effect   = "Allow"
-#         Action   = [
-#           "secretsmanager:GetSecretValue", 
-#           "secretsmanager:DescribeSecret",
-#           "secretsmanager:ListSecrets",
-#                     ]
-#         Resource = ["arn:aws:secretsmanager:${var.aws_region}:${var.account_ID}:secret:${local.name_prefix}ec2/rds/mysql*"
-# ]
-        
-          
-        
-#       },
-#     ]
-#   })
-# }
+resource "aws_iam_role_policy" "specific_access_policy_parameters" {
+  name = "EC2_to_Parameters"
+  role = aws_iam_role.my_ec2_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = ["ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:DescribeParameters"
+        ]
+        Effect = "Allow"
+        Resource = [
+          "arn:aws:ssm:${var.aws_region}:${var.account_ID}:parameter/lab/db/*"
+        ]
 
 
-
-
-
-
-
-
-
-
-
-
-
-# resource "aws_iam_policy" "secrets_policy" {
-#   name        = "secrets_policy"
-#   path        = "/"
-#   description = "access to secrets"
-
-#   # Terraform's "jsonencode" function converts a
-#   # Terraform expression result to valid JSON syntax.
-#   policy = jsonencode({
-#     Version = "2012-10-17"
-#     Statement = [
-#       {
-#         Action = [
-#           "secretmanager:GetSecretValue",
-#           "secretmanager:DescribeSecret"
-
-#         ]
-#         Effect   = "Allow"
-#         Resource = "arn:aws:secretmanager:${var.aws_region}::secret:${local.name_prefix}/mysql/rds*"
-#       },
-#     ]
-#   })
-# }
-
-# This will be used in conjunction with the ec2 instance
-resource "aws_iam_instance_profile" "my_instance_profile" {
-  name = "my-instance-profile01"
-  role = aws_iam_role.my_ec2_role.name
+      },
+    ]
+  })
 }
 
-############ EC2 Instance: App Host ##################################
+resource "aws_iam_role_policy" "specific_access_cloudwatch_agent" {
+  name = "EC2_to_Cloudwatch_agent"
+  role = aws_iam_role.my_ec2_role.id
 
-resource "aws_instance" "my_created_ec2"{
-  ami                     = var.ec2_ami_id
-  instance_type           = var.ec2_instance_type
-  subnet_id               = aws_subnet.sweet_freedom_public.id
-  vpc_security_group_ids  = [aws_security_group.my-ec2-sg.id]
-  iam_instance_profile    = aws_iam_instance_profile.my_instance_profile.name
-  availability_zone = "us-east-1a"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = ["logs:PutLogEvents",
+          "logs:DescribeLogStreams",
+          "logs:CreateLogStream",
+          "logs:CreateLogGroup",
+          "logs:DescribeLogGroups"
 
-  user_data = file("user_data/user_data.sh")
+        ]
+        Effect = "Allow"
+        Resource = [
+          "${aws_cloudwatch_log_group.my_log_group.arn}:*"
+        ]
 
-  # TODO: student supplies user_data to install app + CW agent + configure log shipping
-  # user_data = file("${path.module}/user_data.sh")
+
+      },
+    ]
+  })
+}
+
+############## PARAMETER STORE ###############
+resource "aws_ssm_parameter" "rds_db_endpoint_parameter" {
+  name  = "/lab/db/endpoint"
+  type  = "String"
+  value = aws_db_instance.my_instance_rds.address
 
   tags = {
-    Name = "${local.name_prefix}-ec201"
+    Name = "${local.name_prefix}-param-db-endpoint"
   }
 }
 
 
+resource "aws_ssm_parameter" "rds_db_port_parameter" {
+  name  = "/lab/db/port"
+  type  = "String"
+  value = tostring(aws_db_instance.my_instance_rds.port)
 
-############ Secrets Manager: DB Credentials #####################
+  tags = {
+    Name = "${local.name_prefix}-param-db-port"
+  }
+}
+
+
+resource "aws_ssm_parameter" "rds_db_name_parameter" {
+  name  = "/lab/db/name"
+  type  = "String"
+  value = var.rds_db_name
+
+  tags = {
+    Name = "${local.name_prefix}-param-db-name"
+  }
+}
+
+
+############# CLOUDWATCH LOG GROUP ##############
+resource "aws_cloudwatch_log_group" "my_log_group" {
+  name              = "/aws/ec2/lab-rds-app"
+  retention_in_days = 7
+
+}
+
+
+############# METRIC ALARM ################################
+resource "aws_cloudwatch_metric_alarm" "my_db_alarm" {
+  alarm_name          = "${local.name_prefix}-db-connection-failure"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 1
+  metric_name         = "DBConnectionErrors"
+  namespace           = "Lab/RDSApp"
+  period              = 300
+  statistic           = "Sum"
+  threshold           = 3
+  treat_missing_data  = "notBreaching"
+
+
+  dimensions = {
+    InstanceId = aws_instance.my_created_ec2.id
+  }
+
+  alarm_actions = [aws_sns_topic.my_sns_topic.arn]
+
+  tags = {
+    Name = "${local.name_prefix}-alarm-db-fail"
+  }
+}
+
+
+################ SNS TOPIC #########################
+resource "aws_sns_topic" "my_sns_topic" {
+  name = "${local.name_prefix}-db-incidents"
+}
+
+############## EMAIL SUBSCRIPTION ##############################
+resource "aws_sns_topic_subscription" "my_sns_sub01" {
+  topic_arn = aws_sns_topic.my_sns_topic.arn
+  protocol  = "email"
+  endpoint  = var.sns_sub_email_endpoint
+}
+
+############ INSTANCE PROFILE ###############
+resource "aws_iam_instance_profile" "cloudwatch_agent_profile" {
+  name = "my-instance-profile01"
+  role = aws_iam_role.my_ec2_role.name
+}
+
+############ EC2 INSTANCE: APP HOST ##################################
+
+resource "aws_instance" "my_created_ec2" {
+  ami                    = var.ec2_ami_id
+  instance_type          = var.ec2_instance_type
+  subnet_id              = aws_subnet.sweet_freedom_public.id
+  vpc_security_group_ids = [aws_security_group.my-ec2-sg.id, aws_security_group.ec2_connect_sg.id]
+  iam_instance_profile   = aws_iam_instance_profile.cloudwatch_agent_profile.name
+  availability_zone      = "us-east-1a"
+
+  user_data = data.cloudinit_config.my_config_files.rendered
+
+  tags = {
+    Name = "${local.name_prefix}-ec201"
+  }
+  depends_on = [aws_cloudwatch_log_group.my_log_group]
+}
+
+
+
+############ SECRETS MANAGER FOR DB CREDENTIALS #####################
 
 
 resource "aws_secretsmanager_secret" "my_db_secret" {
-  name = "${local.name_prefix}ec2/rds/mysql"
+  name                    = "${local.name_prefix}_ec2/rds/mysql"
   recovery_window_in_days = 0
 }
 
