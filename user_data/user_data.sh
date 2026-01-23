@@ -4,8 +4,6 @@ sudo dnf update -y
 sudo dnf install -y python3-pip
 sudo pip3 install flask pymysql boto3
 
-sudo yum install amazon-cloudwatch-agent -y
-
 
 sudo mkdir -p /opt/rdsapp
 sudo tee /opt/rdsapp/app.py <<'PY'
@@ -114,8 +112,6 @@ Restart=always
 WantedBy=multi-user.target
 SERVICE
 
-sudo systemctl start amazon-cloudwatch-agent
-sudo systemctl enable amazon-cloudwatch-agent
 sudo systemctl daemon-reload
 sudo systemctl enable rdsapp
 sudo systemctl start rdsapp
