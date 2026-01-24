@@ -3,8 +3,8 @@ data "aws_availability_zones" "available" {
 }
 
 data "cloudinit_config" "my_config_files" {
-  gzip          = true
-  base64_encode = true
+  gzip          = false
+  base64_encode = false
 
   # First script
   part {

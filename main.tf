@@ -94,7 +94,7 @@ resource "aws_eip" "mando_eip" {
 
 resource "aws_nat_gateway" "my_nat" {
   allocation_id = aws_eip.mando_eip.id
-  subnet_id     = aws_subnet.sweet_freedom_public.id 
+  subnet_id     = aws_subnet.sweet_freedom_public.id
 
   tags = {
     Name = "My_underground_connection!"
@@ -181,44 +181,6 @@ resource "aws_vpc_security_group_egress_rule" "ec2_outbound" {
   ip_protocol       = "-1"
 }
 
-################ RDS to EC2 CONNECT #################################
-# RDS security group
-resource "aws_security_group" "rds_connect_sg" {
-  name   = "rds_connect_sg"
-  vpc_id = aws_vpc.help_me.id
-}
-
-resource "aws_security_group_rule" "rds_connect_sg_access" {
-  type                     = "ingress"
-  security_group_id        = aws_security_group.rds_connect_sg.id
-  from_port                = 3306
-  protocol                 = "tcp"
-  to_port                  = 3306
-  source_security_group_id = aws_security_group.ec2_connect_sg.id
-}
-
-# EC2 Security group
-resource "aws_security_group" "ec2_connect_sg" {
-  name   = "ec2_connect_sg"
-  vpc_id = aws_vpc.help_me.id
-}
-
-resource "aws_vpc_security_group_ingress_rule" "ec2_http_access" {
-  security_group_id = aws_security_group.ec2_connect_sg.id
-  cidr_ipv4         = "0.0.0.0/0"
-  from_port         = 80
-  ip_protocol       = "tcp"
-  to_port           = 80
-}
-resource "aws_security_group_rule" "ec2_connect_rule" {
-  type                     = "egress"
-  to_port                  = 3306
-  protocol                 = "tcp"
-  from_port                = 3306
-  security_group_id        = aws_security_group.ec2_connect_sg.id
-  source_security_group_id = aws_security_group.rds_connect_sg.id
-}
-
 
 ################### RDS Security Group: Ingress & Egress ######################
 
@@ -280,7 +242,7 @@ resource "aws_db_instance" "my_instance_rds" {
   availability_zone = "us-east-1a"
 
   db_subnet_group_name   = aws_db_subnet_group.my_rds_subnet_group.name
-  vpc_security_group_ids = [aws_security_group.my-rds-sg.id, aws_security_group.rds_connect_sg.id]
+  vpc_security_group_ids = [aws_security_group.my-rds-sg.id]
 
   publicly_accessible = false
   skip_final_snapshot = true
@@ -337,7 +299,7 @@ resource "aws_iam_role_policy" "specific_access_policy" {
         ]
         Effect = "Allow"
         Resource = [
-          "arn:aws:secretsmanager:${var.aws_region}:${var.account_ID}:secret:${local.name_prefix}_ec2/rds/mysql*"
+          "arn:aws:secretsmanager:${var.aws_region}:${var.account_ID}:secret:my_unique_name_ec2/rds/mysql*"
         ]
 
 
@@ -486,12 +448,11 @@ resource "aws_instance" "my_created_ec2" {
   ami                    = var.ec2_ami_id
   instance_type          = var.ec2_instance_type
   subnet_id              = aws_subnet.sweet_freedom_public.id
-  vpc_security_group_ids = [aws_security_group.my-ec2-sg.id, aws_security_group.ec2_connect_sg.id]
+  vpc_security_group_ids = [aws_security_group.my-ec2-sg.id]
   iam_instance_profile   = aws_iam_instance_profile.cloudwatch_agent_profile.name
   availability_zone      = "us-east-1a"
 
   user_data = data.cloudinit_config.my_config_files.rendered
-
   tags = {
     Name = "${local.name_prefix}-ec201"
   }
@@ -512,8 +473,9 @@ resource "aws_secretsmanager_secret_version" "my_db_secret_version" {
   secret_id = aws_secretsmanager_secret.my_db_secret.id
 
   secret_string = jsonencode({
-    username = var.rds_user_name
-    password = var.rds_db_password
+    username = aws_db_instance.my_instance_rds.username
+    password = aws_db_instance.my_instance_rds.password
+    engine   = "mysql"
     host     = aws_db_instance.my_instance_rds.address
     port     = aws_db_instance.my_instance_rds.port
     dbname   = "lab-mysql"

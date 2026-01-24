@@ -3,7 +3,7 @@
 sudo dnf update -y
 sudo dnf install -y python3-pip
 sudo pip3 install flask pymysql boto3
-
+sudo dnf install mariadb105 -y
 
 sudo mkdir -p /opt/rdsapp
 sudo tee /opt/rdsapp/app.py <<'PY'
@@ -14,7 +14,7 @@ import pymysql
 from flask import Flask, request
 
 REGION = os.environ.get("AWS_REGION", "us-east-1")
-SECRET_ID = os.environ.get("SECRET_ID", "${local.name_prefix}_ec2/rds/mysql*")
+SECRET_ID = os.environ.get("SECRET_ID", "my_unique_name_ec2/rds/mysql")
 
 secrets = boto3.client("secretsmanager", region_name=REGION)
 
@@ -55,8 +55,8 @@ def init_db():
     # connect without specifying a DB first
     conn = pymysql.connect(host=host, user=user, password=password, port=port, autocommit=True)
     cur = conn.cursor()
-    cur.execute("CREATE DATABASE IF NOT EXISTS labdb;")
-    cur.execute("USE labdb;")
+    cur.execute("CREATE DATABASE IF NOT EXISTS lab-mysql;")
+    cur.execute("USE lab-mysql;")
     cur.execute("""
         CREATE TABLE IF NOT EXISTS notes (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -65,7 +65,7 @@ def init_db():
     """)
     cur.close()
     conn.close()
-    return "Initialized labdb + notes table."
+    return "Initialized lab-mysql + notes table."
 
 @app.route("/add", methods=["POST", "GET"])
 def add_note():
@@ -104,7 +104,7 @@ After=network.target
 
 [Service]
 WorkingDirectory=/opt/rdsapp
-Environment=SECRET_ID=${local.name_prefix}ec2/rds/mysql
+Environment=SECRET_ID=my_unique_name_ec2/rds/mysql
 ExecStart=/usr/bin/python3 /opt/rdsapp/app.py
 Restart=always
 
