@@ -405,23 +405,24 @@ resource "aws_cloudwatch_metric_alarm" "my_db_alarm" {
   comparison_operator = "GreaterThanOrEqualToThreshold"
   evaluation_periods  = 1
   metric_name         = "DBConnectionErrors"
-  namespace           = "Lab/RDSApp"
+  namespace           = "Lab3/RDSApp"
   period              = 300
   statistic           = "Sum"
   threshold           = 3
   treat_missing_data  = "notBreaching"
-
 
   dimensions = {
     InstanceId = aws_instance.my_created_ec2.id
   }
 
   alarm_actions = [aws_sns_topic.my_sns_topic.arn]
+  ok_actions    = [aws_sns_topic.my_sns_topic.arn]
 
   tags = {
     Name = "${local.name_prefix}-alarm-db-fail"
   }
 }
+
 
 
 ################ SNS TOPIC #########################
