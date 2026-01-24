@@ -299,7 +299,7 @@ resource "aws_iam_role_policy" "specific_access_policy" {
         ]
         Effect = "Allow"
         Resource = [
-          "arn:aws:secretsmanager:${var.aws_region}:${var.account_ID}:secret:my_unique_name_ec2/rds/mysql*"
+          "arn:aws:secretsmanager:${var.aws_region}:${var.account_ID}:secret:lab3/rds/mysql*"
         ]
 
 
@@ -465,7 +465,7 @@ resource "aws_instance" "my_created_ec2" {
 
 
 resource "aws_secretsmanager_secret" "my_db_secret" {
-  name                    = "${local.name_prefix}_ec2/rds/mysql"
+  name                    = "lab3/rds/mysql"
   recovery_window_in_days = 0
 }
 
