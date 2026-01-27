@@ -29,8 +29,9 @@ cat <<'EOT' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
 }
 EOT
 
-
+# FIX: Point -c to the file path used above (/etc/amazon-cloudwatch-agent.json)
 sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
 
+# These are technically redundant if you use the '-s' flag above, but safe to keep
 sudo systemctl enable amazon-cloudwatch-agent
 sudo systemctl start amazon-cloudwatch-agent

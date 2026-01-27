@@ -49,3 +49,24 @@ variable "sns_sub_email_endpoint" {
   type    = string
   default = "wheeling2346@gmail.com"
 }
+
+variable "enable_waf" {
+  type    = bool
+  default = true
+}
+
+variable "alb_5xx_threshold"{
+  type = number
+  default = 12
+}
+
+variable "alb_5xx_evaluation_periods" {
+  type = number
+  default = 1
+}
+
+variable "alb_5xx_period_seconds" {
+  type = number
+  default = 300
+}
+

@@ -1,12 +1,12 @@
 
 #!/bin/bash
-sudo dnf update -y
-sudo dnf install -y python3-pip
-sudo python3 -m pip install --no-input flask pymysql boto3
+dnf update -y
+dnf install -y python3-pip
+python3 -m pip install --no-input flask pymysql boto3
 
 
-sudo mkdir -p /opt/rdsapp
-sudo tee /opt/rdsapp/app.py <<'PY'
+mkdir -p /opt/rdsapp
+cat >/opt/rdsapp/app.py <<'PY'
 import json
 import os
 import boto3
@@ -65,7 +65,7 @@ def init_db():
     """)
     cur.close()
     conn.close()
-    return "Initialized lab2db + notes table."
+    return "Initialized lab3db + notes table."
 
 @app.route("/add", methods=["POST", "GET"])
 def add_note():
@@ -97,7 +97,7 @@ if __name__ == "__main__":
     app.run(host="0.0.0.0", port=80)
 PY
 
-sudo tee /etc/systemd/system/rdsapp.service <<'SERVICE'
+cat >/etc/systemd/system/rdsapp.service <<'SERVICE'
 [Unit]
 Description=EC2 to RDS Notes App
 After=network.target
@@ -112,6 +112,6 @@ Restart=always
 WantedBy=multi-user.target
 SERVICE
 
-sudo systemctl daemon-reload
-sudo systemctl enable rdsapp
-sudo systemctl start rdsapp
+systemctl daemon-reload
+systemctl enable rdsapp
+systemctl start rdsapp
