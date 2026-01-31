@@ -1,11 +1,14 @@
 
 #!/bin/bash
+set -euxo pipefail
+exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+
 dnf update -y
 dnf install -y python3-pip
 python3 -m pip install --no-input flask pymysql boto3
 
-
 mkdir -p /opt/rdsapp
+
 cat >/opt/rdsapp/app.py <<'PY'
 import json
 import os
@@ -20,19 +23,18 @@ secrets = boto3.client("secretsmanager", region_name=REGION)
 
 def get_db_creds():
     resp = secrets.get_secret_value(SecretId=SECRET_ID)
-    s = json.loads(resp["SecretString"])
-    # When you use "Credentials for RDS database", AWS usually stores:
-    # username, password, host, port, dbname (sometimes)
-    return s
+    return json.loads(resp["SecretString"])
 
 def get_conn():
     c = get_db_creds()
-    host = c["host"]
-    user = c["username"]
-    password = c["password"]
-    port = int(c.get("port", 3306))
-    db = "lab3db" # we'll create this if it doesn't exist
-    return pymysql.connect(host=host, user=user, password=password, port=port, database=db, autocommit=True)
+    return pymysql.connect(
+        host=c["host"],
+        user=c["username"],
+        password=c["password"],
+        port=int(c.get("port", 3306)),
+        database="lab3db",
+        autocommit=True,
+    )
 
 app = Flask(__name__)
 
@@ -47,13 +49,10 @@ def home():
 @app.route("/init")
 def init_db():
     c = get_db_creds()
-    host = c["host"]
-    user = c["username"]
-    password = c["password"]
-    port = int(c.get("port", 3306))
-
-    # connect without specifying a DB first
-    conn = pymysql.connect(host=host, user=user, password=password, port=port, autocommit=True)
+    conn = pymysql.connect(
+        host=c["host"], user=c["username"], password=c["password"],
+        port=int(c.get("port", 3306)), autocommit=True
+    )
     cur = conn.cursor()
     cur.execute("CREATE DATABASE IF NOT EXISTS lab3db;")
     cur.execute("USE lab3db;")
@@ -87,11 +86,7 @@ def list_notes():
     rows = cur.fetchall()
     cur.close()
     conn.close()
-    out = "<h3>Notes</h3><ul>"
-    for r in rows:
-        out += f"<li>{r[0]}: {r[1]}</li>"
-    out += "</ul>"
-    return out
+    return "<h3>Notes</h3><ul>" + "".join([f"<li>{r[0]}: {r[1]}</li>" for r in rows]) + "</ul>"
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=80)
@@ -113,5 +108,4 @@ WantedBy=multi-user.target
 SERVICE
 
 systemctl daemon-reload
-systemctl enable rdsapp
-systemctl start rdsapp
+systemctl enable --now rdsapp

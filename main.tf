@@ -447,7 +447,7 @@ resource "aws_instance" "my_created_ec2" {
   iam_instance_profile   = aws_iam_instance_profile.cloudwatch_agent_profile.name
   availability_zone      = "us-east-1a"
 
-  user_data = data.cloudinit_config.my_config_files.rendered
+  user_data = (data.cloudinit_config.my_config_files.rendered)
   tags = {
     Name = "${local.name_prefix}-ec201"
   }
@@ -583,6 +583,9 @@ resource "aws_lb" "test" {
 
   enable_deletion_protection = false
 
+
+  
+
   tags = {
     Environment = "production"
   }
@@ -613,6 +616,11 @@ resource "aws_lb_listener" "alb_https_listener" {
     type             = "forward"
     target_group_arn = aws_lb_target_group.alb_target_group.arn
   }
+
+ depends_on = [
+    aws_acm_certificate_validation.piecourse_acm_validation
+  ]
+
 }
 
 resource "aws_lb_listener" "alb_http_listener" {
@@ -665,8 +673,10 @@ resource "aws_lb_target_group_attachment" "tg_attach" {
 ################# ACM
 
 resource "aws_acm_certificate" "piecourse_acm_cert" {
-  domain_name       = "piecourse.com"
-  validation_method = "DNS"
+  provider                  = aws.use1
+  domain_name               = var.domain_name
+  subject_alternative_names = ["${var.app_subdomain}.${var.domain_name}"]
+  validation_method         = "DNS"
 
 
   tags = {
@@ -716,7 +726,7 @@ resource "aws_wafv2_web_acl" "my_waf" {
  count = var.enable_waf ? 1 : 0
 
   name  = "alb-waf"
-  scope = "REGIONAL"
+  scope = var.waf_scope
 
   default_action {
     allow {}
@@ -728,7 +738,7 @@ resource "aws_wafv2_web_acl" "my_waf" {
     sampled_requests_enabled   = true
   }
 
-  # Explanation: AWS managed rules are like hiring Rebel commandos — they’ve seen every trick.
+  
   rule {
     name     = "AWSManagedRulesCommonRuleSet"
     priority = 1
@@ -844,3 +854,6 @@ resource "aws_cloudwatch_dashboard" "my_cloudwatch_dashboard01" {
     ]
   })
 }
+
+
+

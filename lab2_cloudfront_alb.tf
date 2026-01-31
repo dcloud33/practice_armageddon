@@ -1,0 +1,77 @@
+# Explanation: CloudFront is the only public doorway — Chewbacca stands behind it with private infrastructure.
+resource "aws_cloudfront_distribution" "my_cf" {
+  enabled         = true
+  is_ipv6_enabled = false
+  comment         = "lab-cf01"
+
+  origin {
+    origin_id   = "lab-alb-origin01"
+    domain_name = aws_lb.test.dns_name
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "http-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+
+    # Explanation: CloudFront whispers the secret growl — the ALB only trusts this.
+    custom_header {
+      name  = "My_Custom_Header"
+      value = random_password.my_origin_header_value01.result
+    }
+  }
+
+  default_cache_behavior {
+  target_origin_id       = "lab-alb-origin01"
+  viewer_protocol_policy = "redirect-to-https"
+
+  allowed_methods = ["GET","HEAD","OPTIONS","PUT","POST","PATCH","DELETE"]
+  cached_methods  = ["GET","HEAD"]
+
+  cache_policy_id          = aws_cloudfront_cache_policy.my_cache_api_disabled01.id
+  origin_request_policy_id = aws_cloudfront_origin_request_policy.my_orp_api01.id
+}
+
+# Explanation: Static behavior is the speed lane—Chewbacca caches it hard for performance.
+ordered_cache_behavior {
+  path_pattern           = "/static/*"
+  target_origin_id       = "lab-alb-origin01"
+  viewer_protocol_policy = "redirect-to-https"
+
+  allowed_methods = ["GET","HEAD","OPTIONS"]
+  cached_methods  = ["GET","HEAD"]
+
+  cache_policy_id            = aws_cloudfront_cache_policy.my_cache_static01.id
+  origin_request_policy_id   = aws_cloudfront_origin_request_policy.my_orp_static01.id
+  response_headers_policy_id = aws_cloudfront_response_headers_policy.my_rsp_static01.id
+}
+
+
+  # Explanation: Attach WAF at the edge — now WAF moved to CloudFront.
+ web_acl_id = var.waf_arn
+
+
+  # TODO: students set aliases for chewbacca-growl.com and app.chewbacca-growl.com
+  aliases = [
+    var.domain_name,
+    "${var.app_subdomain}.${var.domain_name}"
+  ]
+
+
+  viewer_certificate {
+    acm_certificate_arn      = var.cloudfront_acm_cert_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+}
+
+
+
+

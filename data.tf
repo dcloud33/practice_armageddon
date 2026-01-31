@@ -20,3 +20,16 @@ data "cloudinit_config" "my_config_files" {
     filename     = "cloudwatch_agent_config.sh"
   }
 }
+
+
+data "aws_caller_identity" "aws_caller" {}
+
+
+# data "aws_route53_zone" "piecourse" {
+#   name         = "piecourse.com"
+#   private_zone = false
+# }
+
+data "aws_cloudfront_origin_request_policy" "managed_all_viewer" {
+  name = "Managed-AllViewer"
+}
