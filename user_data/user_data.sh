@@ -14,7 +14,11 @@ import json
 import os
 import boto3
 import pymysql
-from flask import Flask, request
+from flask import Flask, request, make_response
+import logging
+from logging.handlers import RotatingFileHandler
+from datetime import datetime, timezone
+import uuid
 
 REGION = os.environ.get("AWS_REGION", "us-east-1")
 SECRET_ID = os.environ.get("SECRET_ID", "lab3/rds/mysql")
