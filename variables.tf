@@ -142,3 +142,8 @@ variable "waf_arn" {
   type    = string
   default = null
 }
+
+variable "break_glass_invalidate" {
+  type    = bool
+  default = false
+}

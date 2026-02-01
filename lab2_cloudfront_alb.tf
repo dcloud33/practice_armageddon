@@ -50,6 +50,36 @@ ordered_cache_behavior {
   origin_request_policy_id = aws_cloudfront_origin_request_policy.my_orp_api01.id
 }
 
+
+# Entrypoint: cached but short TTL to limit blast radius;
+# still demonstrates Age + x-cache + invalidation clearly.
+ordered_cache_behavior {
+  path_pattern           = "/static/index.html"
+  target_origin_id       = "lab-alb-origin01"
+  viewer_protocol_policy = "redirect-to-https"
+
+  allowed_methods = ["GET","HEAD","OPTIONS"]
+  cached_methods  = ["GET","HEAD"]
+
+  cache_policy_id            = aws_cloudfront_cache_policy.my_cache_static_entrypoint01.id
+  origin_request_policy_id   = aws_cloudfront_origin_request_policy.my_orp_static01.id
+  response_headers_policy_id = aws_cloudfront_response_headers_policy.my_rsp_static01.id
+}
+
+ordered_cache_behavior {
+  path_pattern           = "/static/manifest.json"
+  target_origin_id       = "lab-alb-origin01"
+  viewer_protocol_policy = "redirect-to-https"
+
+  allowed_methods = ["GET","HEAD","OPTIONS"]
+  cached_methods  = ["GET","HEAD"]
+
+  cache_policy_id            = aws_cloudfront_cache_policy.my_cache_static_entrypoint01.id
+  origin_request_policy_id   = aws_cloudfront_origin_request_policy.my_orp_static01.id
+  response_headers_policy_id = aws_cloudfront_response_headers_policy.my_rsp_static01.id
+}
+
+
 # Explanation: Static behavior is the speed lane—Chewbacca caches it hard for performance.
 ordered_cache_behavior {
   path_pattern           = "/static/*"
@@ -89,6 +119,11 @@ ordered_cache_behavior {
   }
 }
 
-
+# Lab 2b-Be a Man B
+resource "aws_cloudfront_create_invalidation" "chewbacca_invalidate_index01" {
+  count           = var.break_glass_invalidate ? 1 : 0
+  distribution_id = aws_cloudfront_distribution.my_cf.id
+  paths           = ["/static/index.html"]
+}
 
 

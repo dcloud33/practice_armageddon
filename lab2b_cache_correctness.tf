@@ -97,6 +97,25 @@ resource "aws_cloudfront_origin_request_policy" "my_orp_static01" {
   headers_config { header_behavior = "none" }
 }
 
+resource "aws_cloudfront_cache_policy" "my_cache_static_entrypoint01" {
+  name        = "lab-static-entrypoint-short-ttl"
+  comment     = "Short TTL for index/manifest so invalidation is small + meaningful"
+  default_ttl = 300
+  max_ttl     = 300
+  min_ttl     = 0
+
+  parameters_in_cache_key_and_forwarded_to_origin {
+    cookies_config { cookie_behavior = "none" }
+    headers_config { header_behavior = "none" }
+    query_strings_config { query_string_behavior = "none" }
+
+    enable_accept_encoding_gzip   = true
+    enable_accept_encoding_brotli = true
+  }
+}
+
+
+
 ##############################################################
 # 5) Response headers policy (optional but nice)
 ##############################################################
@@ -112,6 +131,22 @@ resource "aws_cloudfront_response_headers_policy" "my_rsp_static01" {
       value    = "public, max-age=86400, immutable"
     }
   }
+}
+
+resource "aws_cloudfront_response_headers_policy" "my_rsp_static_entrypoint01" {
+  name    = "lab-rsp-static-entrypoint01"
+  comment = "Cacheable at CloudFront, not cached in browsers"
+
+  custom_headers_config {
+    items {
+      header   = "Cache-Control"
+      override = true
+      value    = "public, max-age=0, must-revalidate"
+    }
+  }
+
+
+  
 }
 
 
