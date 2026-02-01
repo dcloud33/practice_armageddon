@@ -33,6 +33,23 @@ resource "aws_cloudfront_distribution" "my_cf" {
   origin_request_policy_id = aws_cloudfront_origin_request_policy.my_orp_api01.id
 }
 
+# Honors: origin-driven caching for public feed
+ordered_cache_behavior {
+  path_pattern           = "/api/public-feed"
+  target_origin_id       = "lab-alb-origin01"
+  viewer_protocol_policy = "redirect-to-https"
+
+  allowed_methods = ["GET","HEAD","OPTIONS"]
+  cached_methods  = ["GET","HEAD"]
+
+  # Key part: CloudFront honors origin Cache-Control (e.g., public, s-maxage=30)
+  cache_policy_id = data.aws_cloudfront_cache_policy.use_origin_cache_control.id
+
+  # IMPORTANT: keep this minimal to avoid cache fragmentation.
+  # Use your API ORP only if it does NOT forward cookies/Authorization/User-Agent unnecessarily.
+  origin_request_policy_id = aws_cloudfront_origin_request_policy.my_orp_api01.id
+}
+
 # Explanation: Static behavior is the speed lane—Chewbacca caches it hard for performance.
 ordered_cache_behavior {
   path_pattern           = "/static/*"
