@@ -42,6 +42,49 @@ def get_conn():
 
 app = Flask(__name__)
 
+def utc_now_iso():
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+@app.get("/api/public-feed")
+def public_feed():
+    # This should change on *every* origin request:
+    server_time_utc = utc_now_iso()
+    origin_request_id = str(uuid.uuid4())
+
+    # “Message of the minute” changes each minute (nice human-visible signal)
+    minute_key = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
+    message = f"hello from minute {minute_key}"
+
+    body = {
+        "server_time_utc": server_time_utc,          # changes every origin hit
+        "origin_request_id": origin_request_id,      # changes every origin hit
+        "message_of_the_minute": message             # changes each minute
+    }
+
+    resp = make_response(jsonify(body), 200)
+
+    # Shared cache TTL: CloudFront uses s-maxage for shared caches (CDN)
+    # Browser TTL: max-age=0 prevents browser caching (viewer side)
+    resp.headers["Cache-Control"] = "public, s-maxage=30, max-age=0"
+
+    # Extra app-visible evidence (also appears in cached responses)
+    resp.headers["X-Origin-Generated-At"] = server_time_utc
+    return resp
+    
+@app.get("/api/list")
+def private_list():
+    # Simulate user-specific/dynamic content
+    body = {
+        "server_time_utc": utc_now_iso(),
+        "note": "this endpoint must never be cached by shared caches"
+    }
+
+    resp = make_response(jsonify(body), 200)
+
+    # Never cache in shared caches; prevents user mixups / stale reads
+    resp.headers["Cache-Control"] = "private, no-store"
+    return resp
+
 @app.route("/")
 def home():
     return """
