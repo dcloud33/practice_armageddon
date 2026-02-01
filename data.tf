@@ -33,3 +33,14 @@ data "aws_caller_identity" "aws_caller" {}
 data "aws_cloudfront_origin_request_policy" "managed_all_viewer" {
   name = "Managed-AllViewer"
 }
+
+
+# Origin-driven cache policy (AWS managed)
+data "aws_cloudfront_cache_policy" "use_origin_cache_control" {
+  name = "UseOriginCacheControlHeaders"
+}
+
+# (Optional) If your endpoint truly varies by query strings:
+# data "aws_cloudfront_cache_policy" "use_origin_cache_control_qs" {
+#   name = "UseOriginCacheControlHeaders-QueryStrings"
+# }
